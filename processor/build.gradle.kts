@@ -7,6 +7,7 @@ version = "0.0.1"
 
 repositories {
     mavenCentral()
+    maven { url = uri("https://jitpack.io") }
 }
 
 dependencies {
@@ -15,6 +16,8 @@ dependencies {
     implementation("com.google.cloud:google-cloud-vision:1.99.1")
     implementation("com.fasterxml.jackson.core:jackson-core:2.10.+")
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin:2.10.+")
+
+    implementation("org.nield:kotlin-statistics:1.2.1")
 
     implementation("org.anglur:joglext:1.0.3")
     implementation("net.imagej:ij:1.51s")
