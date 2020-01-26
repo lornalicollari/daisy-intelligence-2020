@@ -8,6 +8,8 @@ version = "0.0.1"
 repositories {
     mavenCentral()
     maven { url = uri("https://jitpack.io") }
+    maven { url = uri("http://maven.openimaj.org") }
+    maven { url = uri("http://maven.icm.edu.pl/artifactory/repo/") }
 }
 
 dependencies {

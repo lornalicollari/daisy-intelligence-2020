@@ -6,7 +6,7 @@ import java.io.File
 
 private val logger = KotlinLogging.logger {}
 
-fun getAnnotatedImages(directory: File, limit: Int = 30): Sequence<Pair<File, AnnotateImageResponse>> {
+fun getAnnotatedImages(directory: File, limit: Int = 212): Sequence<Pair<File, AnnotateImageResponse>> {
     check(directory.isDirectory) { "$directory. is not a directory." }
 
     val images = directory.listFiles { file -> file.extension == "jpg" }!!.sorted()

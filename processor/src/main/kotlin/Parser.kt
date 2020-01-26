@@ -17,7 +17,7 @@ typealias Cluster = Set<Block>
 
 private val logger = KotlinLogging.logger {}
 
-fun findAdBlocks(image: File, annotations: AnnotateImageResponse): Set<Set<Block>> {
+fun findClusters(image: File, annotations: AnnotateImageResponse): Set<Cluster> {
 
     val clusters: Set<Set<Block>> = annotations.fullTextAnnotation.pagesList
             .flatMap { it.blocksList }
@@ -28,19 +28,23 @@ fun findAdBlocks(image: File, annotations: AnnotateImageResponse): Set<Set<Block
             .filter { cluster -> cluster.size > 2 && cluster.bounding().dimensions.width.value > 150 && cluster.bounding().dimensions.height.value > 150 }
             .toSet()
 
-    clusters.forEach { parse(image, it) }
-
     visualize(image) {
 
-        val colors = listOf(Color.BLACK, Color.BLUE, Color.RED, Color.GREEN, Color.ORANGE, Color.PINK, Color.MAGENTA, Color.LIGHT_GRAY, Color.CYAN, Color.PINK)
-                .repeat(20)
-        (clusters zip colors).forEach { (cluster, color) ->
-            setColor(color)
-            cluster.forEach { point ->
-                fill(point.boundingBox.asRectangle())
+//        val colors = listOf(Color.BLACK, Color.BLUE, Color.RED, Color.GREEN, Color.ORANGE, Color.PINK, Color.MAGENTA, Color.LIGHT_GRAY, Color.CYAN, Color.PINK)
+//                .repeat(20)
+//        (clusters zip colors).forEach { (cluster, color) ->
+//            setColor(color)
+//            cluster.forEach { point ->
+//                fill(point.boundingBox.asRectangle())
+//            }
+//            lineWidth = 5
+//            draw(cluster.bounding())
+//        }
+        clusters.forEach { cluster ->
+            cluster.forEach {point ->
+                lineWidth = 5
+                draw(point.boundingBox.asRectangle())
             }
-            lineWidth = 5
-            draw(cluster.bounding())
         }
     }
 
@@ -84,7 +88,12 @@ fun Set<Set<Block>>.eatNearby(): Set<Set<Block>> {
             }.toSet()
 }
 
-fun parse(image: File, cluster: Cluster): Output {
+fun parse(image: File, cluster: Cluster): Output? {
+    val (name, score) = (findProductName(cluster) ?: return null)
+    val units = findUnits(cluster)
+
+    if (score < 80) return null
+
     val price = parsePrice(cluster).firstOrNull()
     val discounts = parseDiscount(cluster)
     val priceDiscount = discounts.filterIsInstance<PriceDiscount>().firstOrNull()
@@ -98,9 +107,9 @@ fun parse(image: File, cluster: Cluster): Output {
 
     return Output(
             flyerName = image.nameWithoutExtension,
-            productName = TODO(),
+            productName = name,
             unitPromoPrice = (price ?: priceCalculated)?.dollars,
-            unitOfMeasurement = TODO(),
+            unitOfMeasurement = units,
             leastUnitCountForPromo = percentDiscount?.unitCount,
             priceDiscount = (priceDiscount ?: priceDiscountCalculated)?.dollars,
             percentDiscount = (percentDiscount ?: percentDiscountCalculated)?.percent,
@@ -167,17 +176,20 @@ fun calculateDiscount(price: Price, percentDiscount: PercentDiscount): PriceDisc
 
 fun Double.fixPrice(): Double = when {
     toInt().toString().length < 3 || this - this.toInt() > 0 -> this
-    toInt().toString().endsWith("99") || toInt().toString().endsWith("49") -> {
+    else -> {
         "${toInt().toString().substring(0, toInt().toString().length - 2)}.${toInt().toString().substring(toInt().toString().length - 2)}".toDouble()
     }
-    else -> error("Unexpected price $this.")
 }
 
 
 val Cluster.text: String
     get() = this.joinToString("\n") { block -> block.text }
-fun getProductName(blocksList: Set<Block>, dictionary: Set<String>): Pair<String, Int>? {
-    val blocksString = blocksList.joinToString("\n") { it.text }
+
+fun findProductName(cluster: Cluster): Pair<String, Int>? {
+
+    val dictionary = buildDictionary("product_dictionary")
+
+    val blocksString = cluster.joinToString("\n") { it.text }
     val foundKey = dictionary.filter { blocksString.contains(it) }
             .maxBy { it.length }
 
@@ -190,10 +202,12 @@ fun getProductName(blocksList: Set<Block>, dictionary: Set<String>): Pair<String
 
 }
 
-fun getProductUnits(blocksList: Set<Block>, dictionary: Set<String>): String? {
+fun findUnits(cluster: Cluster): String? {
+
+    val dictionary = buildDictionary("units_dictionary")
 
     return Regex("""(?:(?<num>\d+) )?(?<words>[a-z.]+(?:\s[a-z.]+)+)""", RegexOption.IGNORE_CASE)
-            .findAll((blocksList.map { it.text }).joinToString(" "))
+            .findAll((cluster.map { it.text }).joinToString(" "))
             .map { match ->
                 val number = match.groups["num"]?.value
                 val words = match.groups["words"]?.value

@@ -83,6 +83,10 @@ fun overlap(a: Rectangle, b: Rectangle): Boolean {
     return overlapInX(a, b) && overlapInY(a, b)
 }
 
+fun overlapFully(a: Rectangle, b: Rectangle): Boolean {
+    return a > b && a.topLeft < b.topLeft && a.bottomRight > b.bottomRight
+}
+
 fun distance(a: XComponent, b: XComponent): Double {
     return abs((a - b).value)
 }
