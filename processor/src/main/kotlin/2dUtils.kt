@@ -32,13 +32,19 @@ data class YComponent(val value: Double) : Comparable<YComponent> {
     }
 }
 
-data class Vertex(val x: XComponent, val y: YComponent) {
+data class Vertex(val x: XComponent, val y: YComponent) : Comparable<Vertex> {
     fun toRectangle() = Rectangle(Vertex.ORIGIN, Dimensions(x, y))
 
     operator fun plus(other: Vertex) = Vertex(this.x + other.x, this.y + other.y)
     operator fun plus(x: XComponent) = Vertex(this.x + x, this.y)
     operator fun plus(y: YComponent) = Vertex(this.x, this.y + y)
     operator fun plus(dimensions: Dimensions) = Vertex(this.x + dimensions.x, this.y + dimensions.y)
+
+    override fun compareTo(other: Vertex): Int = when {
+        this.x < other.x && this.y < other.y -> -1
+        this.x > other.x && this.y > other.y -> 1
+        else -> 0
+    }
 
     companion object {
         val ORIGIN = Vertex(XComponent.ORIGIN, YComponent.ORIGIN)
