@@ -18,6 +18,8 @@ dependencies {
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin:2.10.+")
 
     implementation("org.nield:kotlin-statistics:1.2.1")
+    implementation("com.willowtreeapps:fuzzywuzzy-kotlin-jvm:0.1.1")
+    implementation("com.github.doyaaaaaken:kotlin-csv-jvm:0.7.3")
 
     implementation("org.anglur:joglext:1.0.3")
     implementation("net.imagej:ij:1.51s")

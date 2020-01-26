@@ -8,11 +8,23 @@ import java.nio.file.Paths
 
 private val logger = KotlinLogging.logger {}
 
-val DIRECTORY: File = Paths.get("").toAbsolutePath().resolve("res/full/ad-pages").toFile()
+val RESOURCES_DIR: File = Paths.get("").toAbsolutePath().resolve("res/").toFile()
+val DIRECTORY: File = RESOURCES_DIR.resolve("full/ad-pages")
 
 fun main() {
-    getAnnotatedImages(DIRECTORY).take(2)
-            .forEach { (image, annotations) -> findAdBlocks(image, annotations) }
+    val productDictionary = buildDictionary("product_dictionary")
+    val unitDictionary = buildDictionary("units_dictionary")
+    val productNames = getAnnotatedImages(DIRECTORY).take(1)
+            .map { (image, annotations) ->
+                findAdBlocks(image, annotations)
+                        .asSequence()
+                        .map { adBlock ->
+                            (getProductName(adBlock, productDictionary ) to getProductUnits(adBlock, unitDictionary) )
+                        }
+                        .filter { it.first!!.second > 80 }
+                        .forEach { logger.info { "Product Name: ${it.first}  Units: ${it.second}" } }
+            }
+            .toList()
 }
 
 fun annotateImage(image: File, response: AnnotateImageResponse) {
