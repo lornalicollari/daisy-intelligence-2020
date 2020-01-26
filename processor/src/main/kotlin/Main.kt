@@ -11,7 +11,7 @@ private val logger = KotlinLogging.logger {}
 val DIRECTORY: File = Paths.get("").toAbsolutePath().resolve("res/full/ad-pages").toFile()
 
 fun main() {
-    getAnnotatedImages(DIRECTORY).take(5)
+    getAnnotatedImages(DIRECTORY).take(2)
             .forEach { (image, annotations) -> findAdBlocks(image, annotations) }
 }
 

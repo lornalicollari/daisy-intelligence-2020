@@ -26,4 +26,4 @@ val Paragraph.text: String
     get() = wordsList.joinToString(" ") { it.text }
 
 val Word.text: String
-    get() = symbolsList.joinToString { it.text }
+    get() = symbolsList.joinToString("") { it.text }
