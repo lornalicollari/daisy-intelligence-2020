@@ -5,11 +5,7 @@ import com.google.cloud.vision.v1.Block
 import ext.*
 import mu.KotlinLogging
 import com.willowtreeapps.fuzzywuzzy.diffutils.FuzzySearch
-import com.willowtreeapps.fuzzywuzzy.diffutils.model.ExtractedResult
 import ext.*
-import org.nield.kotlinstatistics.Centroid
-import org.nield.kotlinstatistics.dbScanCluster
-import org.nield.kotlinstatistics.multiKMeansCluster
 import util.cluster
 import util.distance
 import util.overlap
@@ -188,19 +184,28 @@ fun getProductName(blocksList: Set<Block>, dictionary: Set<String>): Pair<String
     val fuzzyKey: Pair<String, Int>? = dictionary.associateWith { FuzzySearch.tokenSetRatio(blocksString, it) }
             .maxBy { it.value }!!.toPair()
 
-    return if (foundKey.isNullOrEmpty() || foundKey.length < 6 || fuzzyKey!!.first.contains(foundKey)) {fuzzyKey}
-    else (foundKey to 0)
+    return if (foundKey.isNullOrEmpty() || foundKey.length < 6 || fuzzyKey!!.first.contains(foundKey)) {
+        fuzzyKey
+    } else (foundKey to 100)
 
 }
 
-fun getProductUnits(blocksList: Set<Block>, dictionary: Set<String>): Set<IndexedValue<String>> {
-    val wordsList = blocksList.flatMap { it.paragraphsList }
-            .flatMap { it.wordsList }
-            .map { it.text }
-    val wordsListLowerCase = wordsList.map { it.toLowerCase() }
+fun getProductUnits(blocksList: Set<Block>, dictionary: Set<String>): String? {
 
-    val unitsList = dictionary.filter { wordsListLowerCase.contains(it.toLowerCase()) }.withIndex().toSet()
+    return Regex("""(?:(?<num>\d+) )?(?<words>[a-z.]+(?:\s[a-z.]+)+)""", RegexOption.IGNORE_CASE)
+            .findAll((blocksList.map { it.text }).joinToString(" "))
+            .map { match ->
+                val number = match.groups["num"]?.value
+                val words = match.groups["words"]?.value
+                        ?.split("""\s""".toRegex())
+                        ?.withIndex()
+                        ?.takeWhile { (i, word) -> dictionary.any { Regex("""(\W|^)$it(\W|${'$'})""", RegexOption.IGNORE_CASE).containsMatchIn(word) } || (i == 0 && word.toLowerCase() == "half") }
+                        ?.map { (_, word) -> word }
+                        ?: emptyList()
+                if (words.isEmpty()) "" else (listOf(number) + words).filterNotNull().joinToString(" ")
+            }
+            .filter { it.isNotEmpty() }
+            .firstOrNull()
 
-    return unitsList
 }
 
