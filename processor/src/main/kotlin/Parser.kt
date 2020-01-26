@@ -4,6 +4,12 @@ import com.google.cloud.vision.v1.AnnotateImageResponse
 import com.google.cloud.vision.v1.Block
 import ext.*
 import mu.KotlinLogging
+import com.willowtreeapps.fuzzywuzzy.diffutils.FuzzySearch
+import com.willowtreeapps.fuzzywuzzy.diffutils.model.ExtractedResult
+import ext.*
+import org.nield.kotlinstatistics.Centroid
+import org.nield.kotlinstatistics.dbScanCluster
+import org.nield.kotlinstatistics.multiKMeansCluster
 import util.cluster
 import util.distance
 import util.overlap
@@ -174,3 +180,27 @@ fun Double.fixPrice(): Double = when {
 
 val Cluster.text: String
     get() = this.joinToString("\n") { block -> block.text }
+fun getProductName(blocksList: Set<Block>, dictionary: Set<String>): Pair<String, Int>? {
+    val blocksString = blocksList.joinToString("\n") { it.text }
+    val foundKey = dictionary.filter { blocksString.contains(it) }
+            .maxBy { it.length }
+
+    val fuzzyKey: Pair<String, Int>? = dictionary.associateWith { FuzzySearch.tokenSetRatio(blocksString, it) }
+            .maxBy { it.value }!!.toPair()
+
+    return if (foundKey.isNullOrEmpty() || foundKey.length < 6 || fuzzyKey!!.first.contains(foundKey)) {fuzzyKey}
+    else (foundKey to 0)
+
+}
+
+fun getProductUnits(blocksList: Set<Block>, dictionary: Set<String>): Set<IndexedValue<String>> {
+    val wordsList = blocksList.flatMap { it.paragraphsList }
+            .flatMap { it.wordsList }
+            .map { it.text }
+    val wordsListLowerCase = wordsList.map { it.toLowerCase() }
+
+    val unitsList = dictionary.filter { wordsListLowerCase.contains(it.toLowerCase()) }.withIndex().toSet()
+
+    return unitsList
+}
+
