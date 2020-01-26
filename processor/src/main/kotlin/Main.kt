@@ -10,7 +10,7 @@ val DIRECTORY: File = RESOURCES_DIR.resolve("full/ad-pages")
 val OUTPUT: File = RESOURCES_DIR.resolve("full/ad-pages.csv")
 
 fun main() {
-    val outputs = getAnnotatedImages(DIRECTORY, limit = 212)
+    val outputs = getAnnotatedImages(DIRECTORY, limit = 50)
             .flatMap { (image, annotations) -> findClusters(image, annotations).asSequence().map { image to it } }
             .mapNotNull { (image, cluster) -> parse(image, cluster) }
             .onEach { output -> logger.info { "Parsed image ${output.flyerName} ${output.productName} -> $output." } }
@@ -19,12 +19,15 @@ fun main() {
     csvWriter() {
         this.nullCode = ""
     }.open(OUTPUT) {
+        val header = listOf(listOf("flyer_name", "product_name", "unit_promo_price", "uom",
+                "least_unit_for_promo", "save_per_unit",
+                "discount", "organic"))
         val rows = outputs.map {
             listOf(it.flyerName, it.productName, it.unitPromoPrice?.toString(2), it.unitOfMeasurement,
-                    it.leastUnitCountForPromo?.toInt(), it.priceDiscount?.toString(2),
-                    it.percentDiscount?.toInt(), it.isOrganic)
+                    it.leastUnitCountForPromo, it.priceDiscount?.toString(2),
+                    it.percentDiscount?.toString(2), it.isOrganic)
         }
-        writeAll(rows)
+        writeAll(header + rows)
     }
 }
 

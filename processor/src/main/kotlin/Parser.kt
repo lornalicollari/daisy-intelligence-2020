@@ -28,25 +28,20 @@ fun findClusters(image: File, annotations: AnnotateImageResponse): Set<Cluster> 
             .filter { cluster -> cluster.size > 2 && cluster.bounding().dimensions.width.value > 150 && cluster.bounding().dimensions.height.value > 150 }
             .toSet()
 
-    visualize(image) {
-
-//        val colors = listOf(Color.BLACK, Color.BLUE, Color.RED, Color.GREEN, Color.ORANGE, Color.PINK, Color.MAGENTA, Color.LIGHT_GRAY, Color.CYAN, Color.PINK)
-//                .repeat(20)
-//        (clusters zip colors).forEach { (cluster, color) ->
-//            setColor(color)
-//            cluster.forEach { point ->
-//                fill(point.boundingBox.asRectangle())
-//            }
-//            lineWidth = 5
-//            draw(cluster.bounding())
-//        }
-        clusters.forEach { cluster ->
-            cluster.forEach {point ->
-                lineWidth = 5
-                draw(point.boundingBox.asRectangle())
-            }
-        }
-    }
+//    visualize(image) {
+//
+////        val colors = listOf(Color.BLACK, Color.BLUE, Color.RED, Color.GREEN, Color.ORANGE, Color.PINK, Color.MAGENTA, Color.LIGHT_GRAY, Color.CYAN, Color.PINK)
+////                .repeat(20)
+////        (clusters zip colors).forEach { (cluster, color) ->
+////            setColor(color)
+////            cluster.forEach { point ->
+////                fill(point.boundingBox.asRectangle())
+////            }
+////            lineWidth = 5
+////            draw(cluster.bounding())
+////        }
+//
+//    }
 
     return clusters
 }
@@ -103,14 +98,17 @@ fun parse(image: File, cluster: Cluster): Output? {
     val priceDiscountCalculated = if (price != null && percentDiscount != null) calculateDiscount(price, percentDiscount) else null
     val percentDiscountCalculated = if (price != null && priceDiscount != null) calculateDiscount(price, priceDiscount) else null
 
-    val isOrganic = parseIsOrganic(cluster)
+    val isOrganic = if (parseIsOrganic(cluster)) 1 else 0
+
+    val chooseUnitCount: Double = priceDiscount?.unitCount
+            ?: (percentDiscount?.unitCount ?: 1.00)
 
     return Output(
             flyerName = image.nameWithoutExtension,
             productName = name,
             unitPromoPrice = (price ?: priceCalculated)?.dollars,
             unitOfMeasurement = units,
-            leastUnitCountForPromo = percentDiscount?.unitCount,
+            leastUnitCountForPromo = chooseUnitCount.toInt(),
             priceDiscount = (priceDiscount ?: priceDiscountCalculated)?.dollars,
             percentDiscount = (percentDiscount ?: percentDiscountCalculated)?.percent,
             isOrganic = isOrganic
@@ -129,10 +127,10 @@ data class Output(
         val productName: String,
         val unitPromoPrice: Double?,
         val unitOfMeasurement: String?,
-        val leastUnitCountForPromo: Double?,
+        val leastUnitCountForPromo: Int?,
         val priceDiscount: Double?,
         val percentDiscount: Double?,
-        val isOrganic: Boolean?
+        val isOrganic: Int = 0
 )
 
 fun parsePrice(cluster: Cluster): List<Price> {
@@ -151,8 +149,8 @@ fun parseDiscount(cluster: Cluster): List<Discount> {
     return regex.findAll(cluster.text).mapNotNull { match ->
         val unitCount = match.groups["unitCount"]?.value?.toDoubleOrNull() ?: 1.0
         if (match.groups["prefix"] == null && match.groups["suffix"] == null) null
-        else if (match.groups["price"]?.value?.contains("$") == true) PriceDiscount(match.groups["price"]!!.value.replace("$", "").toDouble().fixPrice(), unitCount)
-        else if (match.groups["price"]?.value?.contains("¢") == true) PriceDiscount(match.groups["price"]!!.value.replace("¢", "").toDouble().fixPrice(), unitCount)
+        else if (match.groups["price"]?.value?.contains("$") == true) PriceDiscount(match.groups["price"]!!.value.replace("$", "").toDouble().fixPrice() / unitCount, unitCount)
+        else if (match.groups["price"]?.value?.contains("¢") == true) PriceDiscount(match.groups["price"]!!.value.replace("¢", "").toDouble().fixPrice().div(100) / unitCount, unitCount)
         else if (match.groups["percent"] != null) PercentDiscount(match.groups["percent"]!!.value.replace("%", "").toDouble() / 100 / unitCount, unitCount)
         else error("Error in parsePrice")
     }.toList()
@@ -206,20 +204,20 @@ fun findUnits(cluster: Cluster): String? {
 
     val dictionary = buildDictionary("units_dictionary")
 
-    return Regex("""(?:(?<num>\d+) )?(?<words>[a-z.]+(?:\s[a-z.]+)+)""", RegexOption.IGNORE_CASE)
+    return Regex("""(?:(?<num>\d+)(?:\s|-))?(?<words>[a-z.]+(?:\s[a-z.]+)+)""", RegexOption.IGNORE_CASE)
             .findAll((cluster.map { it.text }).joinToString(" "))
             .map { match ->
-                val number = match.groups["num"]?.value
+                var number = match.groups["num"]?.value
                 val words = match.groups["words"]?.value
-                        ?.split("""\s""".toRegex())
+                        ?.split("""(\s|-)""".toRegex())
                         ?.withIndex()
-                        ?.takeWhile { (i, word) -> dictionary.any { Regex("""(\W|^)$it(\W|${'$'})""", RegexOption.IGNORE_CASE).containsMatchIn(word) } || (i == 0 && word.toLowerCase() == "half") }
+                        ?.dropWhile { (i, word) -> (dictionary.none { Regex("""(\W|^)$it(s|\W|${'$'})""", RegexOption.IGNORE_CASE).containsMatchIn(word) } && word.toLowerCase() != "half").also { if (it) number = null } }
+                        ?.takeWhile { (i, word) -> dictionary.any { Regex("""(\W|^)$it(s|\W|${'$'})""", RegexOption.IGNORE_CASE).containsMatchIn(word) } || (word.toLowerCase() == "half") }
                         ?.map { (_, word) -> word }
                         ?: emptyList()
-                if (words.isEmpty()) "" else (listOf(number) + words).filterNotNull().joinToString(" ")
+                if (words.isEmpty()) "" else (listOf(number) + words).filterNotNull().joinToString(" ").replace(".", "")
             }
             .filter { it.isNotEmpty() }
-            .firstOrNull()
-
+            .maxBy { it.length }
 }
 
