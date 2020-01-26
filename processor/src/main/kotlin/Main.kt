@@ -11,7 +11,8 @@ private val logger = KotlinLogging.logger {}
 val DIRECTORY: File = Paths.get("").toAbsolutePath().resolve("res/full/ad-pages").toFile()
 
 fun main() {
-    getAnnotatedImages(DIRECTORY).forEach { (image, _) -> logger.info { "Processed image $image." } }
+    getAnnotatedImages(DIRECTORY).take(5)
+            .forEach { (image, annotations) -> findAdBlocks(image, annotations) }
 }
 
 fun annotateImage(image: File, response: AnnotateImageResponse) {
@@ -26,7 +27,7 @@ fun annotateImage(image: File, response: AnnotateImageResponse) {
         }
 
         response.fullTextAnnotation.pagesList[0].blocksList.forEach { block ->
-            p.setColor(Color.BLUE)
+                p.setColor(Color.BLUE)
             val (x, y, width, height) = block.boundingBox.rect()
             p.drawRect(x, y, width, height)
         }
