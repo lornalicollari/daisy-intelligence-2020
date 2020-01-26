@@ -5,6 +5,7 @@ import Rectangle
 import Vertex
 import XComponent
 import YComponent
+import bounding
 import com.google.cloud.vision.v1.Block
 import com.google.cloud.vision.v1.TextAnnotation
 import ext.asRectangle
@@ -70,6 +71,18 @@ inline fun <T> Collection<T>.dbScanCluster(
             }
 }
 
+fun overlapInX(a: Rectangle, b: Rectangle): Boolean {
+    return (a.left.value..a.right.value) intersects (b.left.value..b.right.value)
+}
+
+fun overlapInY(a: Rectangle, b: Rectangle): Boolean {
+    return (a.top.value..a.bottom.value) intersects (b.top.value..b.bottom.value)
+}
+
+fun overlap(a: Rectangle, b: Rectangle): Boolean {
+    return overlapInX(a, b) && overlapInY(a, b)
+}
+
 fun distance(a: XComponent, b: XComponent): Double {
     return abs((a - b).value)
 }
@@ -79,22 +92,21 @@ fun distance(a: YComponent, b: YComponent): Double {
 }
 
 fun distance(a: Rectangle, b: Rectangle): Double {
-    val overlapInX = (a.left.value..a.right.value) intersects (b.left.value..b.right.value)
-    val overlapInY = (a.top.value..a.bottom.value) intersects (b.top.value..b.bottom.value)
     val distanceInX = min(distance(a.left, b.right), distance(a.right, b.left))
     val distanceInY = min(distance(a.bottom, b.top), distance(a.top, b.bottom))
 
     return when {
-        overlapInX && overlapInY -> 0.0
-        overlapInX -> distanceInY
-        overlapInY -> distanceInX
+        overlap(a, b) -> 0.0
+        overlapInX(a, b) -> distanceInY
+        overlapInY(a, b) -> distanceInX
         else -> sqrt(distanceInX.pow(2.0) + distanceInY.pow(2.0))
     }
 }
 
 fun Collection<Block>.cluster(
         maxDistance: Double = 50.0,
-        minCount: Int = 2
+        minCount: Int = 1,
+        minDimensions: Dimensions = Dimensions(XComponent(0.0), YComponent(0.0))
 ): Set<Set<Block>> {
     fun neighbors(items: Set<Block>, clusters: Set<Set<Block>>): Set<Block> {
         val neighbors = items.flatMap { a ->
@@ -120,7 +132,11 @@ fun Collection<Block>.cluster(
             else -> {
                 val neighbors = neighbors(setOf(block), clusters)
                 when {
-                    neighbors.size >= minCount -> clusters + setOf(neighbors)
+                    neighbors.size >= minCount && neighbors.bounding().dimensions >= minDimensions &&
+                            neighbors.bounding().dimensions.height >= minDimensions.height &&
+                            neighbors.bounding().dimensions.width >= minDimensions.width -> {
+                        clusters + setOf(neighbors)
+                    }
                     else -> clusters
                 }
             }
